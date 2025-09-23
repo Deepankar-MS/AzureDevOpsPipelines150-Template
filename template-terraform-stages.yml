@@ -1,7 +1,16 @@
 # parameters values will be passed from the main/parent yaml template.
 parameters:
   environment: dev
-  environmentDisplayName: Development
+  envi    - task: AzureCLI@2
+      displayName: terraform apply ${{ parameters.backendAzureRmKey }}
+      condition: eq(variables.anyTfChanges, true)
+      inputs:
+        azureSubscription: ${{ parameters.backendServiceArm }}
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        workingDirectory: ${{ parameters.workingDirectory }}
+        inlineScript: |
+          terraform apply -auto-approve ${{ parameters.backendAzureRmKey }}splayName: Development
   backendServiceArm: ''
   backendAzureRmResourceGroupName: 'resourcegroup-tfstate'
   backendAzureRmStorageAccountName: 'terraformtfstate'
@@ -24,38 +33,63 @@ stages:
 
     steps:
     
-    - task: TerraformInstaller@0
-      displayName: install Terraform v1.5.7
+    - task: PowerShell@2
+      displayName: Install Terraform v1.5.7
       inputs:
-        terraformVersion: '1.5.7'
+        targetType: 'inline'
+        script: |
+          # Download and install Terraform
+          $terraformVersion = "1.5.7"
+          $downloadUrl = "https://releases.hashicorp.com/terraform/${terraformVersion}/terraform_${terraformVersion}_linux_amd64.zip"
+          
+          Write-Host "Downloading Terraform v$terraformVersion..."
+          Invoke-WebRequest -Uri $downloadUrl -OutFile "terraform.zip"
+          
+          Write-Host "Extracting Terraform..."
+          Expand-Archive -Path "terraform.zip" -DestinationPath "." -Force
+          
+          Write-Host "Making Terraform executable..."
+          chmod +x ./terraform
+          
+          Write-Host "Moving Terraform to PATH..."
+          sudo mv ./terraform /usr/local/bin/
+          
+          Write-Host "Verifying Terraform installation..."
+          terraform version
     
-    - task: TerraformTaskV1@0
+    - task: AzureCLI@2
       displayName: terraform init with Azure backend
       inputs:
-        provider: 'azurerm'
-        command: 'init'
+        azureSubscription: ${{ parameters.backendServiceArm }}
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
         workingDirectory: ${{ parameters.workingDirectory }}
-        backendServiceArm: ${{ parameters.backendServiceArm }}
-        backendAzureRmResourceGroupName: ${{ parameters.backendAzureRmResourceGroupName }}
-        backendAzureRmStorageAccountName: ${{ parameters.backendAzureRmStorageAccountName }}
-        backendAzureRmContainerName: ${{ parameters.backendAzureRmContainerName }}
-        backendAzureRmKey: ${{ parameters.backendAzureRmKey }}
+        inlineScript: |
+          terraform init \
+            -backend-config="resource_group_name=${{ parameters.backendAzureRmResourceGroupName }}" \
+            -backend-config="storage_account_name=${{ parameters.backendAzureRmStorageAccountName }}" \
+            -backend-config="container_name=${{ parameters.backendAzureRmContainerName }}" \
+            -backend-config="key=${{ parameters.backendAzureRmKey }}"
     
-    - task: TerraformTaskV1@0
+    - task: AzureCLI@2
       displayName: terraform validate
       inputs:
-        provider: 'azurerm'
-        command: 'validate'
+        azureSubscription: ${{ parameters.backendServiceArm }}
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
         workingDirectory: ${{ parameters.workingDirectory }}
+        inlineScript: |
+          terraform validate
     
-    - task: TerraformTaskV1@0
+    - task: AzureCLI@2
       displayName: terraform plan -var environment=${{ parameters.environment }} -out=${{ parameters.backendAzureRmKey }}
       inputs:
-        provider: 'azurerm'
-        command: 'plan'
+        azureSubscription: ${{ parameters.backendServiceArm }}
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
         workingDirectory: ${{ parameters.workingDirectory }}
-        commandOptions: '-var environment=${{ parameters.environment }} -out=${{ parameters.backendAzureRmKey }}'
-        environmentServiceNameAzureRM: ${{ parameters.backendServiceArm }}
+        inlineScript: |
+          terraform plan -var environment=${{ parameters.environment }} -out=${{ parameters.backendAzureRmKey }}
     
     - task: PowerShell@2
       displayName: detect any terraform change in the plan
