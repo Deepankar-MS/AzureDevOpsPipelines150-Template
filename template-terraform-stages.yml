@@ -24,28 +24,42 @@ stages:
 
     steps:
     
-    - task: PowerShell@2
+    - task: Bash@3
       displayName: Install Terraform v1.5.7
       inputs:
         targetType: 'inline'
         script: |
-          # Download and install Terraform
-          $terraformVersion = "1.5.7"
-          $downloadUrl = "https://releases.hashicorp.com/terraform/${terraformVersion}/terraform_${terraformVersion}_linux_amd64.zip"
+          # Check if Terraform is already installed with correct version
+          if command -v terraform &> /dev/null; then
+            CURRENT_VERSION=$(terraform version -json | jq -r '.terraform_version' 2>/dev/null || echo "unknown")
+            if [ "$CURRENT_VERSION" = "1.5.7" ]; then
+              echo "Terraform v1.5.7 is already installed"
+              terraform version
+              exit 0
+            fi
+          fi
           
-          Write-Host "Downloading Terraform v$terraformVersion..."
-          Invoke-WebRequest -Uri $downloadUrl -OutFile "terraform.zip"
+          echo "Installing Terraform v1.5.7..."
           
-          Write-Host "Extracting Terraform..."
-          Expand-Archive -Path "terraform.zip" -DestinationPath "." -Force
+          # Download Terraform
+          TERRAFORM_VERSION="1.5.7"
+          DOWNLOAD_URL="https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip"
           
-          Write-Host "Making Terraform executable..."
-          chmod +x ./terraform
+          echo "Downloading from: $DOWNLOAD_URL"
           
-          Write-Host "Moving Terraform to PATH..."
-          sudo mv ./terraform /usr/local/bin/
+          # Clean up any existing files
+          rm -f terraform.zip terraform
           
-          Write-Host "Verifying Terraform installation..."
+          # Download and extract
+          curl -fsSL "$DOWNLOAD_URL" -o terraform.zip
+          unzip -o terraform.zip
+          
+          # Make executable and move to PATH
+          chmod +x terraform
+          sudo mv terraform /usr/local/bin/
+          
+          # Verify installation
+          echo "Terraform installation completed:"
           terraform version
     
     - task: AzureCLI@2
