@@ -47,16 +47,25 @@ stages:
           
           echo "Downloading from: $DOWNLOAD_URL"
           
-          # Clean up any existing files
-          rm -f terraform.zip terraform
+          # Clean up any existing files/directories that might conflict
+          rm -f terraform.zip
+          # Handle both file and directory cases for 'terraform'
+          if [ -f terraform ]; then
+            rm -f terraform
+          elif [ -d terraform ]; then
+            echo "Found terraform directory, working around it..."
+          fi
           
-          # Download and extract
+          # Download and extract to a temporary name first
           curl -fsSL "$DOWNLOAD_URL" -o terraform.zip
-          unzip -o terraform.zip
+          unzip -o terraform.zip terraform -d /tmp/
           
           # Make executable and move to PATH
-          chmod +x terraform
-          sudo mv terraform /usr/local/bin/
+          chmod +x /tmp/terraform
+          sudo mv /tmp/terraform /usr/local/bin/terraform
+          
+          # Clean up
+          rm -f terraform.zip
           
           # Verify installation
           echo "Terraform installation completed:"
