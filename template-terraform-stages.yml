@@ -1,16 +1,7 @@
-# parameters values will be passed from the main/parent yaml template.
+﻿# parameters values will be passed from the main/parent yaml template.
 parameters:
   environment: dev
-  envi    - task: AzureCLI@2
-      displayName: terraform apply ${{ parameters.backendAzureRmKey }}
-      condition: eq(variables.anyTfChanges, true)
-      inputs:
-        azureSubscription: ${{ parameters.backendServiceArm }}
-        scriptType: 'bash'
-        scriptLocation: 'inlineScript'
-        workingDirectory: ${{ parameters.workingDirectory }}
-        inlineScript: |
-          terraform apply -auto-approve ${{ parameters.backendAzureRmKey }}splayName: Development
+  environmentDisplayName: Development
   backendServiceArm: ''
   backendAzureRmResourceGroupName: 'resourcegroup-tfstate'
   backendAzureRmStorageAccountName: 'terraformtfstate'
@@ -24,7 +15,7 @@ stages:
 
 - stage: ${{ parameters.environment }}
   displayName: Deploy to ${{ parameters.environmentDisplayName }}
-  dependsOn: ${{ parameters.dependsOn  }}
+  dependsOn: ${{ parameters.dependsOn }}
   jobs:
   - job: Terraform_Plan
     displayName: Terraform Init, Plan & Apply
@@ -118,12 +109,13 @@ stages:
             exit 1
           }
     
-    - task: TerraformTaskV1@0
+    - task: AzureCLI@2
       displayName: terraform apply ${{ parameters.backendAzureRmKey }}
-      condition: eq(variables.anyTfChanges, true)
+      condition: eq(variables.anyTfChanges, true)
       inputs:
-        provider: 'azurerm'
-        command: 'apply'
+        azureSubscription: ${{ parameters.backendServiceArm }}
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
         workingDirectory: ${{ parameters.workingDirectory }}
-        commandOptions: ${{ parameters.backendAzureRmKey }}
-        environmentServiceNameAzureRM: ${{ parameters.backendServiceArm }}
+        inlineScript: |
+          terraform apply -auto-approve ${{ parameters.backendAzureRmKey }}
