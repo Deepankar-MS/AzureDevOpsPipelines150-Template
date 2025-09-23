@@ -3,8 +3,8 @@ parameters:
   environment: terraform_backend_tfstate
   environmentDisplayName: Terraform Backend
   backendServiceArm: ''
-  backendAzureRmResourceGroupName: 'resourcegroup-tfstate'
-  backendAzureRmStorageAccountName: 'terraformtfstate'
+  backendAzureRmResourceGroupName: 'rg-terraform-state'
+  backendAzureRmStorageAccountName: 'tfstate20250923db'
   backendAzureRmContainerName: 'tfstate'
   location: 'westeurope'
   dependsOn: []

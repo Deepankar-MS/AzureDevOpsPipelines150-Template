@@ -2,9 +2,9 @@ trigger:
 - main
 
 variables:
-  backendServiceArm: 'AZURE_5_SUBSCRIPTION'
-  backendAzureRmResourceGroupName: 'resourcegroup-devops-tfstate'
-  backendAzureRmStorageAccountName: 'terraform0tfstate0'
+  backendServiceArm: 'Deepankar-MS'
+  backendAzureRmResourceGroupName: 'rg-terraform-state'
+  backendAzureRmStorageAccountName: 'tfstate20250923db'
   backendAzureRmContainerName: 'tfstate'
   location: 'westeurope'
   tfBackendEnvironment: tf_backend

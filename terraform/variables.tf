@@ -7,3 +7,8 @@ variable "resource-group-name" {
   default = "resourcegroup"
   description = "The Resource Group name to be deployed"
 }
+
+variable "location" {
+  default = "westeurope"
+  description = "The Azure region where resources will be deployed"
+}

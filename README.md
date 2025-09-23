@@ -13,11 +13,25 @@ The pipeline consists of:
 ## Prerequisites
 - Azure DevOps organization
 - Azure subscription with appropriate permissions
-- Service connection configured in Azure DevOps (`AZURE_5_SUBSCRIPTION`)
+- **Service connection configured in Azure DevOps** (see setup instructions below)
+
+## Service Connection Setup
+**IMPORTANT**: Before running the pipeline, you must create an Azure service connection:
+
+1. Go to your Azure DevOps project
+2. Navigate to **Project Settings** → **Service connections**
+3. Click **New service connection** → **Azure Resource Manager**
+4. Choose **Service principal (automatic)** or **Service principal (manual)**
+5. Select your Azure subscription and resource group
+6. **Name your service connection** (e.g., `MyAzureConnection`)
+7. **Update the pipeline**: Change `backendServiceArm: 'YOUR_AZURE_SERVICE_CONNECTION_NAME'` in `azure-pipelines.yml` to match your service connection name
 
 ## Quick Start
-1. Update the variables in `azure-pipelines.yml` to match your environment
-2. Ensure your Azure service connection name matches `backendServiceArm` variable
+1. **Create Azure service connection** (see above)
+2. **Update the variables** in `azure-pipelines.yml`:
+   - `backendServiceArm`: Your Azure service connection name
+   - `backendAzureRmStorageAccountName`: Must be globally unique
+   - Other variables as needed for your environment
 3. Commit and push to trigger the pipeline
 
 ## Built-in Tasks Used
@@ -28,11 +42,21 @@ This pipeline uses only built-in Azure DevOps tasks:
 **Note**: No marketplace extensions required! All Terraform operations use the built-in AzureCLI task.
 
 ## Configuration
-Update these variables in `azure-pipelines.yml`:
-- `backendServiceArm`: Your Azure service connection name
+**Critical Variables to Update in `azure-pipelines.yml`:**
+- `backendServiceArm`: **YOUR AZURE SERVICE CONNECTION NAME** (must match exactly)
 - `backendAzureRmResourceGroupName`: Resource group for Terraform state storage
-- `backendAzureRmStorageAccountName`: Storage account name (must be globally unique)
+- `backendAzureRmStorageAccountName`: Storage account name (**must be globally unique**)
 - `location`: Azure region for resources
+
+**Example:**
+```yaml
+variables:
+  backendServiceArm: 'MyAzureConnection'  # ← Your service connection name
+  backendAzureRmResourceGroupName: 'my-terraform-state-rg'
+  backendAzureRmStorageAccountName: 'myuniquestorageacct123'  # ← Must be globally unique
+  backendAzureRmContainerName: 'tfstate'
+  location: 'eastus'
+```
 
 ```yaml
 # sample-azure-pipelines.yml
