@@ -16,15 +16,29 @@ The pipeline consists of:
 - **Service connection configured in Azure DevOps** (see setup instructions below)
 
 ## Service Connection Setup
-**IMPORTANT**: Before running the pipeline, you must create an Azure service connection:
+**CRITICAL**: The pipeline requires an **Azure Resource Manager** service connection, not a GitHub connection.
 
-1. Go to your Azure DevOps project
-2. Navigate to **Project Settings** → **Service connections**
-3. Click **New service connection** → **Azure Resource Manager**
-4. Choose **Service principal (automatic)** or **Service principal (manual)**
-5. Select your Azure subscription and resource group
-6. **Name your service connection** (e.g., `MyAzureConnection`)
-7. **Update the pipeline**: Change `backendServiceArm: 'YOUR_AZURE_SERVICE_CONNECTION_NAME'` in `azure-pipelines.yml` to match your service connection name
+### Step 1: Check Existing Service Connections
+1. Go to **Azure DevOps Project Settings** → **Service connections**
+2. Look for connections with type **Azure Resource Manager**
+3. If you find one, note its exact name
+
+### Step 2: Create Azure Service Connection (if needed)
+If you don't have an Azure Resource Manager connection:
+1. Click **New service connection** → **Azure Resource Manager**
+2. Choose **Service principal (automatic)** (recommended)
+3. Select your Azure subscription and resource group
+4. **Name it clearly** (e.g., `Azure-Production`, `MyAzureSubscription`)
+5. Click **Save**
+
+### Step 3: Update Pipeline
+**Update the `backendServiceArm` variable in `azure-pipelines.yml`:**
+```yaml
+variables:
+  backendServiceArm: 'YOUR_AZURE_SERVICE_CONNECTION_NAME'  # Not GitHub connection!
+```
+
+**⚠️ Common Mistake:** Using GitHub service connection instead of Azure service connection
 
 ## Quick Start
 1. **Create Azure service connection** (see above)
