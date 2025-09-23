@@ -8,6 +8,7 @@ parameters:
   backendAzureRmContainerName: 'tfstate'
   backendAzureRmKey: 'dev.tfstate'
   workingDirectory: 'terraform'
+  location: 'westeurope'
   anyTfChanges: false
   dependsOn: []
 
@@ -78,7 +79,19 @@ stages:
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         workingDirectory: ${{ parameters.workingDirectory }}
+        addSpnToEnvironment: true
         inlineScript: |
+          # Set Terraform environment variables for service principal authentication
+          export ARM_CLIENT_ID=$servicePrincipalId
+          export ARM_CLIENT_SECRET=$servicePrincipalKey
+          export ARM_TENANT_ID=$tenantId
+          export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+          
+          # Display authentication info (without secrets)
+          echo "Using Service Principal: $servicePrincipalId"
+          echo "Tenant ID: $tenantId"
+          echo "Subscription ID: $ARM_SUBSCRIPTION_ID"
+          
           terraform init \
             -backend-config="resource_group_name=${{ parameters.backendAzureRmResourceGroupName }}" \
             -backend-config="storage_account_name=${{ parameters.backendAzureRmStorageAccountName }}" \
@@ -92,7 +105,14 @@ stages:
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         workingDirectory: ${{ parameters.workingDirectory }}
+        addSpnToEnvironment: true
         inlineScript: |
+          # Set Terraform environment variables for service principal authentication
+          export ARM_CLIENT_ID=$servicePrincipalId
+          export ARM_CLIENT_SECRET=$servicePrincipalKey
+          export ARM_TENANT_ID=$tenantId
+          export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+          
           terraform validate
     
     - task: AzureCLI@2
@@ -102,8 +122,15 @@ stages:
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         workingDirectory: ${{ parameters.workingDirectory }}
+        addSpnToEnvironment: true
         inlineScript: |
-          terraform plan -var environment=${{ parameters.environment }} -out=${{ parameters.backendAzureRmKey }}
+          # Set Terraform environment variables for service principal authentication
+          export ARM_CLIENT_ID=$servicePrincipalId
+          export ARM_CLIENT_SECRET=$servicePrincipalKey
+          export ARM_TENANT_ID=$tenantId
+          export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+          
+          terraform plan -var environment=${{ parameters.environment }} -var location=${{ parameters.location }} -out=${{ parameters.backendAzureRmKey }}
     
     - task: PowerShell@2
       displayName: detect any terraform change in the plan
@@ -140,5 +167,12 @@ stages:
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         workingDirectory: ${{ parameters.workingDirectory }}
+        addSpnToEnvironment: true
         inlineScript: |
+          # Set Terraform environment variables for service principal authentication
+          export ARM_CLIENT_ID=$servicePrincipalId
+          export ARM_CLIENT_SECRET=$servicePrincipalKey
+          export ARM_TENANT_ID=$tenantId
+          export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+          
           terraform apply -auto-approve ${{ parameters.backendAzureRmKey }}

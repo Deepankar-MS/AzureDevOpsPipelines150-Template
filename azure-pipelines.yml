@@ -35,6 +35,7 @@ stages:
     backendAzureRmContainerName: ${{ variables.backendAzureRmContainerName }}
     backendAzureRmKey: ${{ variables.devEnvironment }}.tfstate
     workingDirectory: ${{ variables.tfWorkingDirectory }}
+    location: ${{ variables.location }}
     dependsOn: ['${{ variables.tfBackendEnvironment }}']
 
 - template: template-terraform-stages.yml
@@ -47,6 +48,7 @@ stages:
     backendAzureRmContainerName: ${{ variables.backendAzureRmContainerName }}
     backendAzureRmKey: ${{ variables.testEnvironment }}.tfstate
     workingDirectory: ${{ variables.tfWorkingDirectory }}
+    location: ${{ variables.location }}
     dependsOn: ['${{ variables.tfBackendEnvironment }}', '${{ variables.devEnvironment }}']
 
 - template: template-terraform-stages.yml
@@ -59,4 +61,5 @@ stages:
     backendAzureRmContainerName: ${{ variables.backendAzureRmContainerName }}
     backendAzureRmKey: ${{ variables.prodEnvironment }}.tfstate
     workingDirectory: ${{ variables.tfWorkingDirectory }}
+    location: ${{ variables.location }}
     dependsOn: ['${{ variables.tfBackendEnvironment }}', '${{ variables.devEnvironment }}', '${{ variables.testEnvironment }}']
