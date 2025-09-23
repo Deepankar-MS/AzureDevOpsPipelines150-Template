@@ -1,0 +1,18 @@
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+jobs:
+- job: SampleJob
+  displayName: Sample Job with Template Steps
+
+  steps:
+
+  - template: sample-template-step.yml
+
+  - template: sample-template-step.yml
+
+  - template: sample-template-step.yml
+   
