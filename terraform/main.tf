@@ -1,13 +1,12 @@
 provider "azurerm" {
   features {}
   
-  # Explicitly use service principal authentication
+  # Try Service Principal first, fall back to OIDC if no secret available
   use_cli                 = false
   use_msi                 = false
-  use_oidc                = false
   
-  # These will be provided via environment variables:
-  # ARM_CLIENT_ID, ARM_CLIENT_SECRET, ARM_TENANT_ID, ARM_SUBSCRIPTION_ID
+  # Note: Azure DevOps may use Workload Identity Federation
+  # If ARM_CLIENT_SECRET is not available, this will try OIDC
 }
 
 resource "azurerm_resource_group" "rg" {

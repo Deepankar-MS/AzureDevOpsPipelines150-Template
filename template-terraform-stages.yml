@@ -81,31 +81,50 @@ stages:
         workingDirectory: ${{ parameters.workingDirectory }}
         addSpnToEnvironment: true
         inlineScript: |
-          # Set and verify Terraform environment variables for service principal authentication
-          export ARM_CLIENT_ID=$servicePrincipalId
-          export ARM_CLIENT_SECRET=$servicePrincipalKey
-          export ARM_TENANT_ID=$tenantId
-          export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+          # Debug: Check what variables are available
+          echo "=== Available Service Principal Variables ==="
+          echo "servicePrincipalId: ${servicePrincipalId:-NOT_SET}"
+          echo "servicePrincipalKey: ${servicePrincipalKey:+SET (length: ${#servicePrincipalKey})}${servicePrincipalKey:-NOT_SET}"
+          echo "tenantId: ${tenantId:-NOT_SET}"
+          echo "idToken: ${idToken:+SET (length: ${#idToken})}${idToken:-NOT_SET}"
+          echo "================================================"
           
-          # Disable Azure CLI authentication methods
+          # Set authentication variables
+          export ARM_CLIENT_ID="${servicePrincipalId:-$ARM_CLIENT_ID}"
+          export ARM_TENANT_ID="${tenantId:-$ARM_TENANT_ID}"
+          export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
           export ARM_USE_CLI=false
           export ARM_USE_MSI=false
-          export ARM_USE_OIDC=false
           
-          # Debug: Display authentication info (without secrets)
-          echo "=== Authentication Configuration ==="
+          # Check if we have a client secret (Service Principal manual) or token (Workload Identity Federation)
+          if [[ -n "${servicePrincipalKey:-}" ]]; then
+            echo "Using Service Principal (manual) authentication"
+            export ARM_CLIENT_SECRET="$servicePrincipalKey"
+            export ARM_USE_OIDC=false
+          elif [[ -n "${idToken:-}" ]]; then
+            echo "Using Workload Identity Federation (OIDC) authentication"
+            export ARM_OIDC_TOKEN="$idToken"
+            export ARM_USE_OIDC=true
+          else
+            echo "ERROR: Neither servicePrincipalKey nor idToken is available"
+            echo "Please check your Azure DevOps service connection configuration"
+            echo "It should be either:"
+            echo "1. Service Principal (manual) with client secret"
+            echo "2. Workload Identity Federation"
+            exit 1
+          fi
+          
+          # Display authentication info (without secrets)
+          echo "=== Final Authentication Configuration ==="
           echo "ARM_CLIENT_ID: $ARM_CLIENT_ID"
           echo "ARM_TENANT_ID: $ARM_TENANT_ID"
           echo "ARM_SUBSCRIPTION_ID: $ARM_SUBSCRIPTION_ID"
           echo "ARM_USE_CLI: $ARM_USE_CLI"
-          echo "ARM_CLIENT_SECRET: [REDACTED - Length: ${#ARM_CLIENT_SECRET}]"
-          echo "===================================="
-          
-          # Verify required variables are set
-          if [[ -z "$ARM_CLIENT_ID" || -z "$ARM_CLIENT_SECRET" || -z "$ARM_TENANT_ID" || -z "$ARM_SUBSCRIPTION_ID" ]]; then
-            echo "ERROR: Missing required ARM authentication variables"
-            exit 1
-          fi
+          echo "ARM_USE_MSI: $ARM_USE_MSI"
+          echo "ARM_USE_OIDC: ${ARM_USE_OIDC:-false}"
+          echo "ARM_CLIENT_SECRET: ${ARM_CLIENT_SECRET:+SET (length: ${#ARM_CLIENT_SECRET})}${ARM_CLIENT_SECRET:-NOT_SET}"
+          echo "ARM_OIDC_TOKEN: ${ARM_OIDC_TOKEN:+SET (length: ${#ARM_OIDC_TOKEN})}${ARM_OIDC_TOKEN:-NOT_SET}"
+          echo "=============================================="
           
           terraform init \
             -backend-config="resource_group_name=${{ parameters.backendAzureRmResourceGroupName }}" \
@@ -122,14 +141,21 @@ stages:
         workingDirectory: ${{ parameters.workingDirectory }}
         addSpnToEnvironment: true
         inlineScript: |
-          # Set Terraform environment variables for service principal authentication
-          export ARM_CLIENT_ID=$servicePrincipalId
-          export ARM_CLIENT_SECRET=$servicePrincipalKey
-          export ARM_TENANT_ID=$tenantId
+          # Set authentication variables
+          export ARM_CLIENT_ID="${servicePrincipalId:-$ARM_CLIENT_ID}"
+          export ARM_TENANT_ID="${tenantId:-$ARM_TENANT_ID}"
           export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
           export ARM_USE_CLI=false
           export ARM_USE_MSI=false
-          export ARM_USE_OIDC=false
+          
+          # Configure authentication method based on available credentials
+          if [[ -n "${servicePrincipalKey:-}" ]]; then
+            export ARM_CLIENT_SECRET="$servicePrincipalKey"
+            export ARM_USE_OIDC=false
+          elif [[ -n "${idToken:-}" ]]; then
+            export ARM_OIDC_TOKEN="$idToken"
+            export ARM_USE_OIDC=true
+          fi
           
           terraform validate
     
@@ -142,16 +168,23 @@ stages:
         workingDirectory: ${{ parameters.workingDirectory }}
         addSpnToEnvironment: true
         inlineScript: |
-          # Set Terraform environment variables for service principal authentication
-          export ARM_CLIENT_ID=$servicePrincipalId
-          export ARM_CLIENT_SECRET=$servicePrincipalKey
-          export ARM_TENANT_ID=$tenantId
+          # Set authentication variables
+          export ARM_CLIENT_ID="${servicePrincipalId:-$ARM_CLIENT_ID}"
+          export ARM_TENANT_ID="${tenantId:-$ARM_TENANT_ID}"
           export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
           export ARM_USE_CLI=false
           export ARM_USE_MSI=false
-          export ARM_USE_OIDC=false
           
-          terraform plan -var environment=${{ parameters.environment }} -var location=${{ parameters.location }} -out=${{ parameters.backendAzureRmKey }}
+          # Configure authentication method based on available credentials
+          if [[ -n "${servicePrincipalKey:-}" ]]; then
+            export ARM_CLIENT_SECRET="$servicePrincipalKey"
+            export ARM_USE_OIDC=false
+          elif [[ -n "${idToken:-}" ]]; then
+            export ARM_OIDC_TOKEN="$idToken"
+            export ARM_USE_OIDC=true
+          fi
+          
+          terraform plan -var environment=${{ parameters.environment }} -out=${{ parameters.backendAzureRmKey }}
     
     - task: PowerShell@2
       displayName: detect any terraform change in the plan
@@ -190,13 +223,20 @@ stages:
         workingDirectory: ${{ parameters.workingDirectory }}
         addSpnToEnvironment: true
         inlineScript: |
-          # Set Terraform environment variables for service principal authentication
-          export ARM_CLIENT_ID=$servicePrincipalId
-          export ARM_CLIENT_SECRET=$servicePrincipalKey
-          export ARM_TENANT_ID=$tenantId
+          # Set authentication variables
+          export ARM_CLIENT_ID="${servicePrincipalId:-$ARM_CLIENT_ID}"
+          export ARM_TENANT_ID="${tenantId:-$ARM_TENANT_ID}"
           export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
           export ARM_USE_CLI=false
           export ARM_USE_MSI=false
-          export ARM_USE_OIDC=false
+          
+          # Configure authentication method based on available credentials
+          if [[ -n "${servicePrincipalKey:-}" ]]; then
+            export ARM_CLIENT_SECRET="$servicePrincipalKey"
+            export ARM_USE_OIDC=false
+          elif [[ -n "${idToken:-}" ]]; then
+            export ARM_OIDC_TOKEN="$idToken"
+            export ARM_USE_OIDC=true
+          fi
           
           terraform apply -auto-approve ${{ parameters.backendAzureRmKey }}
