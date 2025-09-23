@@ -81,16 +81,31 @@ stages:
         workingDirectory: ${{ parameters.workingDirectory }}
         addSpnToEnvironment: true
         inlineScript: |
-          # Set Terraform environment variables for service principal authentication
+          # Set and verify Terraform environment variables for service principal authentication
           export ARM_CLIENT_ID=$servicePrincipalId
           export ARM_CLIENT_SECRET=$servicePrincipalKey
           export ARM_TENANT_ID=$tenantId
           export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
           
-          # Display authentication info (without secrets)
-          echo "Using Service Principal: $servicePrincipalId"
-          echo "Tenant ID: $tenantId"
-          echo "Subscription ID: $ARM_SUBSCRIPTION_ID"
+          # Disable Azure CLI authentication methods
+          export ARM_USE_CLI=false
+          export ARM_USE_MSI=false
+          export ARM_USE_OIDC=false
+          
+          # Debug: Display authentication info (without secrets)
+          echo "=== Authentication Configuration ==="
+          echo "ARM_CLIENT_ID: $ARM_CLIENT_ID"
+          echo "ARM_TENANT_ID: $ARM_TENANT_ID"
+          echo "ARM_SUBSCRIPTION_ID: $ARM_SUBSCRIPTION_ID"
+          echo "ARM_USE_CLI: $ARM_USE_CLI"
+          echo "ARM_CLIENT_SECRET: [REDACTED - Length: ${#ARM_CLIENT_SECRET}]"
+          echo "===================================="
+          
+          # Verify required variables are set
+          if [[ -z "$ARM_CLIENT_ID" || -z "$ARM_CLIENT_SECRET" || -z "$ARM_TENANT_ID" || -z "$ARM_SUBSCRIPTION_ID" ]]; then
+            echo "ERROR: Missing required ARM authentication variables"
+            exit 1
+          fi
           
           terraform init \
             -backend-config="resource_group_name=${{ parameters.backendAzureRmResourceGroupName }}" \
@@ -112,6 +127,9 @@ stages:
           export ARM_CLIENT_SECRET=$servicePrincipalKey
           export ARM_TENANT_ID=$tenantId
           export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+          export ARM_USE_CLI=false
+          export ARM_USE_MSI=false
+          export ARM_USE_OIDC=false
           
           terraform validate
     
@@ -129,6 +147,9 @@ stages:
           export ARM_CLIENT_SECRET=$servicePrincipalKey
           export ARM_TENANT_ID=$tenantId
           export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+          export ARM_USE_CLI=false
+          export ARM_USE_MSI=false
+          export ARM_USE_OIDC=false
           
           terraform plan -var environment=${{ parameters.environment }} -var location=${{ parameters.location }} -out=${{ parameters.backendAzureRmKey }}
     
@@ -174,5 +195,8 @@ stages:
           export ARM_CLIENT_SECRET=$servicePrincipalKey
           export ARM_TENANT_ID=$tenantId
           export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+          export ARM_USE_CLI=false
+          export ARM_USE_MSI=false
+          export ARM_USE_OIDC=false
           
           terraform apply -auto-approve ${{ parameters.backendAzureRmKey }}

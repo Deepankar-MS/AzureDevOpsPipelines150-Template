@@ -1,10 +1,13 @@
 provider "azurerm" {
-  # The "feature" block is required for AzureRM provider 2.x. 
   features {}
   
-  # Use service principal authentication via environment variables
-  # These will be set by the Azure CLI task in the pipeline
-  use_cli = false
+  # Explicitly use service principal authentication
+  use_cli                 = false
+  use_msi                 = false
+  use_oidc                = false
+  
+  # These will be provided via environment variables:
+  # ARM_CLIENT_ID, ARM_CLIENT_SECRET, ARM_TENANT_ID, ARM_SUBSCRIPTION_ID
 }
 
 resource "azurerm_resource_group" "rg" {
