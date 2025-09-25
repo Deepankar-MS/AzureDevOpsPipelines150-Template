@@ -169,6 +169,55 @@ stages:
           
           echo "=== END DIAGNOSTICS ==="
           
+          # === CRITICAL PERMISSION FIX ===
+          echo "🔐 EMERGENCY: Fixing storage account permissions..."
+          
+          # Get service principal details
+          SP_ID="${servicePrincipalId:-$ARM_CLIENT_ID}"
+          SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+          STORAGE_SCOPE="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/${{ parameters.backendAzureRmResourceGroupName }}/providers/Microsoft.Storage/storageAccounts/${{ parameters.backendAzureRmStorageAccountName }}"
+          
+          echo "Service Principal ID: $SP_ID"
+          echo "Storage Scope: $STORAGE_SCOPE"
+          
+          # Check current permissions
+          echo "🔍 Checking current permissions..."
+          CURRENT_ROLES=$(az role assignment list --assignee "$SP_ID" --scope "$STORAGE_SCOPE" --query "[].roleDefinitionName" -o tsv 2>/dev/null || echo "")
+          echo "Current roles: $CURRENT_ROLES"
+          
+          # Force assign Storage Blob Data Contributor if missing
+          if [[ "$CURRENT_ROLES" != *"Storage Blob Data Contributor"* ]]; then
+            echo "⚠️  Missing Storage Blob Data Contributor role - assigning now..."
+            if az role assignment create --assignee "$SP_ID" --role "Storage Blob Data Contributor" --scope "$STORAGE_SCOPE" 2>/dev/null; then
+              echo "✅ Storage Blob Data Contributor role assigned successfully"
+            else
+              echo "❌ Failed to assign Storage Blob Data Contributor role"
+              # Try with object ID instead of client ID
+              OBJECT_ID=$(az ad sp show --id "$SP_ID" --query id -o tsv 2>/dev/null || echo "")
+              if [[ -n "$OBJECT_ID" && "$OBJECT_ID" != "$SP_ID" ]]; then
+                echo "🔄 Retrying with object ID: $OBJECT_ID"
+                az role assignment create --assignee "$OBJECT_ID" --role "Storage Blob Data Contributor" --scope "$STORAGE_SCOPE" 2>/dev/null && echo "✅ Role assigned with object ID" || echo "❌ Still failed with object ID"
+              fi
+            fi
+          else
+            echo "✅ Storage Blob Data Contributor role already exists"
+          fi
+          
+          # Wait for permission propagation
+          echo "⏳ Waiting 10 seconds for permission propagation..."
+          sleep 10
+          
+          # Test permission by trying to list blobs
+          echo "🧪 Testing storage access..."
+          if az storage container list --account-name "${{ parameters.backendAzureRmStorageAccountName }}" --auth-mode login >/dev/null 2>&1; then
+            echo "✅ Storage access test successful"
+          else
+            echo "❌ Storage access test failed - permissions may still be propagating"
+            echo "ℹ️  Continuing anyway - Terraform will retry..."
+          fi
+          
+          echo "=== END PERMISSION FIX ==="
+          
           # Force OIDC authentication for backend (disable key-based auth)
           export ARM_USE_AZUREAD=true
           export ARM_STORAGE_USE_AZUREAD=true
