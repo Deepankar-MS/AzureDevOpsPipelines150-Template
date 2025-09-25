@@ -1,12 +1,10 @@
 provider "azurerm" {
   features {}
   
-  # Try Service Principal first, fall back to OIDC if no secret available
-  use_cli                 = false
-  use_msi                 = false
-  
-  # Note: Azure DevOps may use Workload Identity Federation
-  # If ARM_CLIENT_SECRET is not available, this will try OIDC
+  # Use OIDC authentication (Workload Identity Federation)
+  use_cli  = false
+  use_msi  = false
+  use_oidc = true
 }
 
 resource "azurerm_resource_group" "rg" {

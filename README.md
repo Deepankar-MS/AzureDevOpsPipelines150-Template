@@ -16,19 +16,19 @@ The pipeline consists of:
 - **Service connection configured in Azure DevOps** (see setup instructions below)
 
 ## Service Connection Setup
-**CRITICAL**: The pipeline requires an **Azure Resource Manager** service connection, not a GitHub connection.
+**CONFIGURED**: The pipeline is configured to use the **Deepankar-MS** service connection.
 
-### Step 1: Check Existing Service Connections
+### Step 1: Verify Service Connection Exists
 1. Go to **Azure DevOps Project Settings** → **Service connections**
-2. Look for connections with type **Azure Resource Manager**
-3. If you find one, note its exact name
+2. Look for a connection named **"Deepankar-MS"** with type **Azure Resource Manager**
+3. If it exists, the pipeline should work correctly
 
-### Step 2: Create Azure Service Connection (if needed)
-If you don't have an Azure Resource Manager connection:
+### Step 2: Create Service Connection (if missing)
+If you don't have the "Deepankar-MS" connection:
 1. Click **New service connection** → **Azure Resource Manager**
-2. Choose **Service principal (automatic)** (recommended)
+2. Choose **Workload Identity federation (automatic)** (recommended for OIDC)
 3. Select your Azure subscription and resource group
-4. **Name it clearly** (e.g., `Azure-Production`, `MyAzureSubscription`)
+4. **Name it exactly**: `Deepankar-MS`
 5. Click **Save**
 
 ### Step 3: Update Pipeline

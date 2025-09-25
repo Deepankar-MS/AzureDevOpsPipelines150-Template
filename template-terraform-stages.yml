@@ -124,11 +124,13 @@ stages:
           echo "ARM_OIDC_TOKEN: ${ARM_OIDC_TOKEN:+SET (length: ${#ARM_OIDC_TOKEN})}${ARM_OIDC_TOKEN:-NOT_SET}"
           echo "=============================================="
           
+          # Configure terraform init with OIDC backend authentication
           terraform init \
             -backend-config="resource_group_name=${{ parameters.backendAzureRmResourceGroupName }}" \
             -backend-config="storage_account_name=${{ parameters.backendAzureRmStorageAccountName }}" \
             -backend-config="container_name=${{ parameters.backendAzureRmContainerName }}" \
-            -backend-config="key=${{ parameters.backendAzureRmKey }}"
+            -backend-config="key=${{ parameters.backendAzureRmKey }}" \
+            -backend-config="use_oidc=true"
 
     - task: AzureCLI@2
       displayName: terraform validate

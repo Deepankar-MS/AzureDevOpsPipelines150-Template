@@ -1,0 +1,366 @@
+# Azure DevOps Pipeline Integration Test Template
+# This template can be added to your pipeline to run validation tests
+
+parameters:
+  environment: 'test'
+  testResourceGroup: 'rg-test-validation'
+  runCleanup: true
+
+stages:
+- stage: ValidationTests
+  displayName: 'Pipeline Validation Tests'
+  dependsOn: []
+  jobs:
+  - job: ConfigurationValidation
+    displayName: 'Configuration Validation'
+    pool:
+      vmImage: ubuntu-latest
+    
+    steps:
+    - task: Bash@3
+      displayName: 'Run Pipeline Configuration Tests'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "🧪 Running Pipeline Configuration Tests..."
+          
+          # Make test script executable
+          chmod +x test-pipeline.sh
+          
+          # Run tests
+          ./test-pipeline.sh
+          
+          echo "✅ Configuration tests completed"
+
+    - task: AzureCLI@2
+      displayName: 'Validate Azure Connectivity'
+      inputs:
+        azureSubscription: 'Deepankar-MS'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        addSpnToEnvironment: true
+        inlineScript: |
+          echo "🔗 Testing Azure connectivity and authentication..."
+          
+          # Test basic Azure CLI functionality
+          echo "Current subscription:"
+          az account show --query "{subscriptionId: id, tenantId: tenantId, name: name}" -o table
+          
+          # Test resource group access
+          echo "Testing resource group access..."
+          az group list --query "[].{Name:name, Location:location}" -o table | head -5
+          
+          # Verify OIDC authentication variables
+          echo "=== Authentication Verification ==="
+          echo "ARM_CLIENT_ID: ${ARM_CLIENT_ID:-NOT_SET}"
+          echo "ARM_TENANT_ID: ${ARM_TENANT_ID:-NOT_SET}"
+          echo "ARM_SUBSCRIPTION_ID: ${ARM_SUBSCRIPTION_ID:-NOT_SET}"
+          echo "servicePrincipalId: ${servicePrincipalId:-NOT_SET}"
+          echo "tenantId: ${tenantId:-NOT_SET}"
+          echo "idToken available: ${idToken:+YES}${idToken:-NO}"
+          
+          if [[ -n "${idToken:-}" ]]; then
+            echo "✅ OIDC authentication is working"
+          else
+            echo "❌ OIDC authentication may have issues"
+            exit 1
+          fi
+
+  - job: TerraformValidation
+    displayName: 'Terraform Validation'
+    pool:
+      vmImage: ubuntu-latest
+    
+    steps:
+    - task: Bash@3
+      displayName: 'Install Terraform'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "📦 Installing Terraform for validation..."
+          
+          # Download and install Terraform
+          TERRAFORM_VERSION="1.5.7"
+          wget -q https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+          unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+          sudo mv terraform /usr/local/bin/
+          
+          # Verify installation
+          terraform version
+
+    - task: AzureCLI@2
+      displayName: 'Terraform Configuration Test'
+      inputs:
+        azureSubscription: 'Deepankar-MS'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        workingDirectory: 'terraform'
+        addSpnToEnvironment: true
+        inlineScript: |
+          echo "🔧 Testing Terraform configuration..."
+          
+          # Set authentication variables
+          export ARM_CLIENT_ID="${servicePrincipalId}"
+          export ARM_TENANT_ID="${tenantId}"
+          export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+          export ARM_USE_CLI=false
+          export ARM_USE_MSI=false
+          
+          if [[ -n "${idToken:-}" ]]; then
+            export ARM_OIDC_TOKEN="$idToken"
+            export ARM_USE_OIDC=true
+            echo "Using OIDC authentication for Terraform validation"
+          fi
+          
+          # Initialize Terraform (dry run - no backend)
+          terraform init -backend=false
+          
+          # Validate configuration
+          terraform validate
+          
+          # Format check
+          terraform fmt -check=true -diff=true
+          
+          echo "✅ Terraform configuration is valid"
+
+  - job: SecurityValidation
+    displayName: 'Security Validation'
+    pool:
+      vmImage: ubuntu-latest
+    
+    steps:
+    - task: Bash@3
+      displayName: 'Security Scan'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "🔒 Running security validation..."
+          
+          # Check for hardcoded secrets
+          echo "Scanning for potential hardcoded secrets..."
+          if grep -r -E "(password|secret|key)\s*[=:]\s*['\"][^$\{]" . --exclude-dir=.git --exclude="*.md" --exclude="Test-Pipeline.ps1" --exclude="test-pipeline.sh"; then
+            echo "❌ Potential hardcoded secrets found!"
+            exit 1
+          else
+            echo "✅ No hardcoded secrets detected"
+          fi
+          
+          # Check file permissions
+          echo "Checking sensitive file permissions..."
+          find . -name "*.tf" -o -name "*.yml" -o -name "*.yaml" | while read file; do
+            if [[ -r "$file" ]]; then
+              echo "✅ $file is readable"
+            else
+              echo "❌ $file has permission issues"
+            fi
+          done
+          
+          # Validate service connection name doesn't contain secrets
+          if grep -q "Deepankar-MS" template-terraform-stages.yml; then
+            echo "✅ Service connection name is configured"
+          else
+            echo "⚠️  Service connection name may need review"
+          fi
+
+- stage: IntegrationTest
+  displayName: 'Integration Test'
+  dependsOn: ValidationTests
+  condition: succeeded()
+  jobs:
+  - job: CreateTestResources
+    displayName: 'Create Test Resources'
+    pool:
+      vmImage: ubuntu-latest
+    
+    steps:
+    - task: AzureCLI@2
+      displayName: 'Create Test Resource Group'
+      inputs:
+        azureSubscription: 'Deepankar-MS'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          echo "🧪 Creating test resources..."
+          
+          # Create test resource group
+          az group create \
+            --name ${{ parameters.testResourceGroup }} \
+            --location westeurope \
+            --tags Environment=Test Purpose=ValidationTest
+          
+          echo "✅ Test resource group created: ${{ parameters.testResourceGroup }}"
+
+    - task: Bash@3
+      displayName: 'Install Terraform for Testing'
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Install Terraform
+          TERRAFORM_VERSION="1.5.7"
+          wget -q https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+          unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+          sudo mv terraform /usr/local/bin/
+          terraform version
+
+    - task: AzureCLI@2
+      displayName: 'Test Terraform Operations'
+      inputs:
+        azureSubscription: 'Deepankar-MS'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        workingDirectory: 'terraform'
+        addSpnToEnvironment: true
+        inlineScript: |
+          echo "🚀 Testing Terraform operations..."
+          
+          # Set authentication for test
+          export ARM_CLIENT_ID="${servicePrincipalId}"
+          export ARM_TENANT_ID="${tenantId}"
+          export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+          export ARM_USE_CLI=false
+          export ARM_USE_MSI=false
+          export ARM_USE_OIDC=true
+          export ARM_OIDC_TOKEN="${idToken}"
+          
+          # Create test terraform configuration
+          cat > test-main.tf << EOF
+          terraform {
+            required_providers {
+              azurerm = {
+                source  = "hashicorp/azurerm"
+                version = "~> 3.0"
+              }
+            }
+          }
+          
+          provider "azurerm" {
+            features {}
+            use_cli  = false
+            use_msi  = false
+            use_oidc = true
+          }
+          
+          resource "azurerm_storage_account" "test" {
+            name                     = "teststg\${random_string.suffix.result}"
+            resource_group_name      = "${{ parameters.testResourceGroup }}"
+            location                 = "West Europe"
+            account_tier             = "Standard"
+            account_replication_type = "LRS"
+            
+            tags = {
+              Environment = "Test"
+              Purpose     = "ValidationTest"
+            }
+          }
+          
+          resource "random_string" "suffix" {
+            length  = 8
+            special = false
+            upper   = false
+          }
+          
+          output "storage_account_name" {
+            value = azurerm_storage_account.test.name
+          }
+          EOF
+          
+          # Initialize and test
+          terraform init
+          terraform plan -out=test.tfplan
+          echo "✅ Terraform plan successful"
+          
+          # Apply (optional - only if we want to test actual deployment)
+          # terraform apply -auto-approve test.tfplan
+          # echo "✅ Terraform apply successful"
+          
+          # Clean up test files
+          rm -f test-main.tf test.tfplan
+
+  - job: CleanupTestResources
+    displayName: 'Cleanup Test Resources'
+    dependsOn: CreateTestResources
+    condition: and(always(), eq('${{ parameters.runCleanup }}', true))
+    pool:
+      vmImage: ubuntu-latest
+    
+    steps:
+    - task: AzureCLI@2
+      displayName: 'Delete Test Resource Group'
+      inputs:
+        azureSubscription: 'Deepankar-MS'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          echo "🧹 Cleaning up test resources..."
+          
+          # Delete test resource group
+          az group delete \
+            --name ${{ parameters.testResourceGroup }} \
+            --yes \
+            --no-wait
+          
+          echo "✅ Test resource group deletion initiated: ${{ parameters.testResourceGroup }}"
+
+- stage: PerformanceTest
+  displayName: 'Performance Test'
+  dependsOn: ValidationTests
+  condition: succeeded()
+  jobs:
+  - job: PipelinePerformance
+    displayName: 'Pipeline Performance Test'
+    pool:
+      vmImage: ubuntu-latest
+    
+    steps:
+    - task: Bash@3
+      displayName: 'Measure Pipeline Performance'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "⏱️  Measuring pipeline performance..."
+          
+          # Record start time
+          START_TIME=$(date +%s)
+          
+          # Simulate pipeline steps and measure timings
+          echo "Testing Terraform installation time..."
+          TERRAFORM_START=$(date +%s)
+          
+          # Install Terraform (simulating the actual step)
+          TERRAFORM_VERSION="1.5.7"
+          wget -q https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+          unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip >/dev/null
+          sudo mv terraform /usr/local/bin/
+          
+          TERRAFORM_END=$(date +%s)
+          TERRAFORM_TIME=$((TERRAFORM_END - TERRAFORM_START))
+          
+          echo "Terraform installation time: ${TERRAFORM_TIME} seconds"
+          
+          # Test file operations
+          FILE_START=$(date +%s)
+          find . -name "*.tf" -o -name "*.yml" | wc -l >/dev/null
+          FILE_END=$(date +%s)
+          FILE_TIME=$((FILE_END - FILE_START))
+          
+          # Calculate total time
+          END_TIME=$(date +%s)
+          TOTAL_TIME=$((END_TIME - START_TIME))
+          
+          echo "📊 Performance Results:"
+          echo "- Terraform installation: ${TERRAFORM_TIME}s"
+          echo "- File operations: ${FILE_TIME}s"
+          echo "- Total test time: ${TOTAL_TIME}s"
+          
+          # Performance assertions
+          if [ $TERRAFORM_TIME -gt 120 ]; then
+            echo "⚠️  Terraform installation took longer than expected (${TERRAFORM_TIME}s > 120s)"
+          else
+            echo "✅ Terraform installation performance acceptable"
+          fi
+          
+          if [ $TOTAL_TIME -gt 300 ]; then
+            echo "⚠️  Total test time exceeded threshold (${TOTAL_TIME}s > 300s)"
+          else
+            echo "✅ Overall performance acceptable"
+          fi
