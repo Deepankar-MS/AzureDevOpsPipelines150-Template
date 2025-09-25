@@ -124,6 +124,51 @@ stages:
           echo "ARM_OIDC_TOKEN: ${ARM_OIDC_TOKEN:+SET (length: ${#ARM_OIDC_TOKEN})}${ARM_OIDC_TOKEN:-NOT_SET}"
           echo "=============================================="
           
+          # === CONNECTIVITY DIAGNOSTICS ===
+          echo "🔍 Running connectivity diagnostics..."
+          
+          # Check DNS resolution for storage account
+          STORAGE_FQDN="${{ parameters.backendAzureRmStorageAccountName }}.blob.core.windows.net"
+          echo "Testing DNS resolution for: $STORAGE_FQDN"
+          
+          if nslookup "$STORAGE_FQDN" > /dev/null 2>&1; then
+            echo "✅ DNS resolution successful for $STORAGE_FQDN"
+          else
+            echo "❌ DNS resolution failed for $STORAGE_FQDN"
+            echo "Available DNS servers:"
+            cat /etc/resolv.conf
+          fi
+          
+          # Test network connectivity
+          echo "Testing network connectivity..."
+          if curl -I "https://$STORAGE_FQDN" --connect-timeout 10 > /dev/null 2>&1; then
+            echo "✅ Network connectivity successful"
+          else
+            echo "❌ Network connectivity failed"
+          fi
+          
+          # Verify storage account exists via Azure CLI
+          echo "Verifying storage account exists via Azure CLI..."
+          if az storage account show --name "${{ parameters.backendAzureRmStorageAccountName }}" --resource-group "${{ parameters.backendAzureRmResourceGroupName }}" > /dev/null 2>&1; then
+            echo "✅ Storage account exists and is accessible via Azure CLI"
+            # Get storage account details
+            az storage account show --name "${{ parameters.backendAzureRmStorageAccountName }}" --resource-group "${{ parameters.backendAzureRmResourceGroupName }}" --query "{name:name,location:location,resourceGroup:resourceGroup,provisioningState:provisioningState}" -o table
+          else
+            echo "❌ Storage account not found or not accessible via Azure CLI"
+            echo "Available storage accounts in resource group:"
+            az storage account list --resource-group "${{ parameters.backendAzureRmResourceGroupName }}" --query "[].name" -o table || echo "No storage accounts found"
+          fi
+          
+          # Verify container exists
+          echo "Checking if container exists..."
+          if az storage container show --name "${{ parameters.backendAzureRmContainerName }}" --account-name "${{ parameters.backendAzureRmStorageAccountName }}" --auth-mode login > /dev/null 2>&1; then
+            echo "✅ Container '${{ parameters.backendAzureRmContainerName }}' exists"
+          else
+            echo "⚠️  Container '${{ parameters.backendAzureRmContainerName }}' not found, will be created during terraform init"
+          fi
+          
+          echo "=== END DIAGNOSTICS ==="
+          
           # Force OIDC authentication for backend (disable key-based auth)
           export ARM_USE_AZUREAD=true
           export ARM_STORAGE_USE_AZUREAD=true

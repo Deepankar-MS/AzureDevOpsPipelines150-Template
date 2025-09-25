@@ -8,8 +8,8 @@ This document outlines functional test cases for the Azure DevOps pipeline that 
 - **Branch**: main
 - **Azure Subscription**: ebb8126f-b2a1-4a95-929a-bb83a078307e
 - **Service Connection**: AzureServiceConnection (OIDC)
-- **Storage Account**: tfstate20250923db
-- **Resource Group**: rg-terraform-state
+- **Storage Account**: aihub010144112441
+- **Resource Group**: demo-chat
 
 ---
 
@@ -443,8 +443,8 @@ terraform init -backend-config="use_oidc=true"
 environment: "test"
 environmentDisplayName: "Test Environment"
 backendServiceArm: "AzureServiceConnection"
-backendAzureRmResourceGroupName: "rg-terraform-state"
-backendAzureRmStorageAccountName: "tfstate20250923db"
+backendAzureRmResourceGroupName: "demo-chat"
+backendAzureRmStorageAccountName: "aihub010144112441"
 backendAzureRmContainerName: "tfstate"
 backendAzureRmKey: "test.tfstate"
 workingDirectory: "terraform"

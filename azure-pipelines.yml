@@ -3,10 +3,10 @@ trigger:
 
 variables:
   backendServiceArm: 'AzureServiceConnection'
-  backendAzureRmResourceGroupName: 'rg-terraform-state'
-  backendAzureRmStorageAccountName: 'tfstate20250923db'
+  backendAzureRmResourceGroupName: 'demo-chat'
+  backendAzureRmStorageAccountName: 'aihub010144112441'
   backendAzureRmContainerName: 'tfstate'
-  location: 'westeurope'
+  location: 'eastus'
   tfBackendEnvironment: tf_backend
   devEnvironment: dev
   testEnvironment: test
