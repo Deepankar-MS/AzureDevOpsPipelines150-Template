@@ -61,20 +61,34 @@ stages:
             echo "Storage account ${{ parameters.backendAzureRmStorageAccountName }} already exists."
           fi
           
-          # Always ensure proper permissions are assigned (idempotent operation)
-          echo "Ensuring Storage Account Contributor permissions for service principal..."
-          az role assignment create \
-            --assignee $SP_ID \
-            --role "Storage Account Contributor" \
-            --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/${{ parameters.backendAzureRmResourceGroupName }}/providers/Microsoft.Storage/storageAccounts/${{ parameters.backendAzureRmStorageAccountName }}" \
-            2>/dev/null || echo "Storage Account Contributor role already assigned or assignment failed"
+          # === ENHANCED PERMISSION ASSIGNMENT ===
+          echo "🔐 Configuring storage account permissions..."
+          echo "Service Principal ID: $SP_ID"
+          echo "Storage Account: ${{ parameters.backendAzureRmStorageAccountName }}"
+          echo "Resource Group: ${{ parameters.backendAzureRmResourceGroupName }}"
           
-          echo "Ensuring Storage Blob Data Contributor permissions for service principal..."
-          az role assignment create \
-            --assignee $SP_ID \
-            --role "Storage Blob Data Contributor" \
-            --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/${{ parameters.backendAzureRmResourceGroupName }}/providers/Microsoft.Storage/storageAccounts/${{ parameters.backendAzureRmStorageAccountName }}" \
-            2>/dev/null || echo "Storage Blob Data Contributor role already assigned or assignment failed"
+          # Storage Account Contributor (for account-level operations)
+          echo "Assigning Storage Account Contributor role..."
+          STORAGE_SCOPE="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/${{ parameters.backendAzureRmResourceGroupName }}/providers/Microsoft.Storage/storageAccounts/${{ parameters.backendAzureRmStorageAccountName }}"
+          
+          if az role assignment create --assignee "$SP_ID" --role "Storage Account Contributor" --scope "$STORAGE_SCOPE" 2>/dev/null; then
+            echo "✅ Storage Account Contributor role assigned successfully"
+          else
+            echo "ℹ️  Storage Account Contributor role may already exist"
+          fi
+          
+          # Storage Blob Data Contributor (for blob operations with OIDC)
+          echo "Assigning Storage Blob Data Contributor role..."
+          if az role assignment create --assignee "$SP_ID" --role "Storage Blob Data Contributor" --scope "$STORAGE_SCOPE" 2>/dev/null; then
+            echo "✅ Storage Blob Data Contributor role assigned successfully"
+          else
+            echo "ℹ️  Storage Blob Data Contributor role may already exist"
+          fi
+          
+          # Verify role assignments
+          echo "🔍 Verifying role assignments..."
+          echo "Current role assignments for service principal on storage account:"
+          az role assignment list --assignee "$SP_ID" --scope "$STORAGE_SCOPE" --query "[].{Role:roleDefinitionName,Scope:scope}" -o table || echo "Could not retrieve role assignments"
            
           # Wait a moment for permissions to propagate
           echo "Waiting for permissions to propagate..."
