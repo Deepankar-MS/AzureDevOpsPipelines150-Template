@@ -124,13 +124,18 @@ stages:
           echo "ARM_OIDC_TOKEN: ${ARM_OIDC_TOKEN:+SET (length: ${#ARM_OIDC_TOKEN})}${ARM_OIDC_TOKEN:-NOT_SET}"
           echo "=============================================="
           
+          # Force OIDC authentication for backend (disable key-based auth)
+          export ARM_USE_AZUREAD=true
+          export ARM_STORAGE_USE_AZUREAD=true
+          
           # Configure terraform init with OIDC backend authentication
           terraform init \
             -backend-config="resource_group_name=${{ parameters.backendAzureRmResourceGroupName }}" \
             -backend-config="storage_account_name=${{ parameters.backendAzureRmStorageAccountName }}" \
             -backend-config="container_name=${{ parameters.backendAzureRmContainerName }}" \
             -backend-config="key=${{ parameters.backendAzureRmKey }}" \
-            -backend-config="use_oidc=true"
+            -backend-config="use_oidc=true" \
+            -backend-config="use_azuread_auth=true"
 
     - task: AzureCLI@2
       displayName: terraform validate
@@ -183,6 +188,10 @@ stages:
             export ARM_OIDC_TOKEN="$idToken"
             export ARM_USE_OIDC=true
           fi
+          
+          # Force OIDC authentication for backend storage
+          export ARM_USE_AZUREAD=true
+          export ARM_STORAGE_USE_AZUREAD=true
           
           terraform plan -var environment=${{ parameters.environment }} -out=${{ parameters.backendAzureRmKey }}
 
@@ -238,5 +247,9 @@ stages:
             export ARM_OIDC_TOKEN="$idToken"
             export ARM_USE_OIDC=true
           fi
+          
+          # Force OIDC authentication for backend storage
+          export ARM_USE_AZUREAD=true
+          export ARM_STORAGE_USE_AZUREAD=true
           
           terraform apply -auto-approve ${{ parameters.backendAzureRmKey }}
