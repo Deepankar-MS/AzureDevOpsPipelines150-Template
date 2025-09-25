@@ -7,7 +7,7 @@ This document outlines functional test cases for the Azure DevOps pipeline that 
 - **Repository**: AzureDevOpsPipelines150-Template
 - **Branch**: main
 - **Azure Subscription**: ebb8126f-b2a1-4a95-929a-bb83a078307e
-- **Service Connection**: Deepankar-MS (OIDC)
+- **Service Connection**: AzureServiceConnection (OIDC)
 - **Storage Account**: tfstate20250923db
 - **Resource Group**: rg-terraform-state
 
@@ -56,16 +56,16 @@ This document outlines functional test cases for the Azure DevOps pipeline that 
 ## Test Case 2: Authentication and Service Connection
 
 ### TC02.1 - Service Connection Configuration
-**Objective**: Verify Deepankar-MS service connection is properly configured
+**Objective**: Verify AzureServiceConnection service connection is properly configured
 **Prerequisites**: Service connection exists in Azure DevOps
 **Test Steps**:
 1. Navigate to Project Settings → Service connections
-2. Verify "Deepankar-MS" connection exists
+2. Verify "AzureServiceConnection" connection exists
 3. Check authentication method is set to "Workload Identity Federation"
 4. Validate subscription and tenant information
 
 **Expected Results**:
-- Service connection named "Deepankar-MS" exists
+- Service connection named "AzureServiceConnection" exists
 - Uses Workload Identity Federation (OIDC)
 - Subscription ID: ebb8126f-b2a1-4a95-929a-bb83a078307e
 - Tenant ID: 24880b1f-f12b-4328-b12b-f5b27d0a5815
@@ -442,7 +442,7 @@ terraform init -backend-config="use_oidc=true"
 # Test parameters
 environment: "test"
 environmentDisplayName: "Test Environment"
-backendServiceArm: "Deepankar-MS"
+backendServiceArm: "AzureServiceConnection"
 backendAzureRmResourceGroupName: "rg-terraform-state"
 backendAzureRmStorageAccountName: "tfstate20250923db"
 backendAzureRmContainerName: "tfstate"
@@ -466,7 +466,7 @@ State File: {environment}.tfstate
 
 ### Pre-Test Setup
 - [ ] Azure DevOps project configured
-- [ ] Service connection "Deepankar-MS" exists
+- [ ] Service connection "AzureServiceConnection" exists
 - [ ] Repository cloned and accessible
 - [ ] Test subscription available
 - [ ] Required permissions granted

@@ -249,7 +249,7 @@ main() {
   - task: AzureCLI@2
     displayName: 'Test New Feature'
     inputs:
-      azureSubscription: 'Deepankar-MS'
+      azureSubscription: 'AzureServiceConnection'
       scriptType: 'bash'
       scriptLocation: 'inlineScript'
       inlineScript: |

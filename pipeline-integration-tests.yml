@@ -35,7 +35,7 @@ stages:
     - task: AzureCLI@2
       displayName: 'Validate Azure Connectivity'
       inputs:
-        azureSubscription: 'Deepankar-MS'
+        azureSubscription: 'AzureServiceConnection'
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         addSpnToEnvironment: true
@@ -91,7 +91,7 @@ stages:
     - task: AzureCLI@2
       displayName: 'Terraform Configuration Test'
       inputs:
-        azureSubscription: 'Deepankar-MS'
+        azureSubscription: 'AzureServiceConnection'
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         workingDirectory: 'terraform'
@@ -156,7 +156,7 @@ stages:
           done
           
           # Validate service connection name doesn't contain secrets
-          if grep -q "Deepankar-MS" template-terraform-stages.yml; then
+          if grep -q "AzureServiceConnection" template-terraform-stages.yml; then
             echo "✅ Service connection name is configured"
           else
             echo "⚠️  Service connection name may need review"
@@ -176,7 +176,7 @@ stages:
     - task: AzureCLI@2
       displayName: 'Create Test Resource Group'
       inputs:
-        azureSubscription: 'Deepankar-MS'
+        azureSubscription: 'AzureServiceConnection'
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
@@ -205,7 +205,7 @@ stages:
     - task: AzureCLI@2
       displayName: 'Test Terraform Operations'
       inputs:
-        azureSubscription: 'Deepankar-MS'
+        azureSubscription: 'AzureServiceConnection'
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         workingDirectory: 'terraform'
@@ -287,7 +287,7 @@ stages:
     - task: AzureCLI@2
       displayName: 'Delete Test Resource Group'
       inputs:
-        azureSubscription: 'Deepankar-MS'
+        azureSubscription: 'AzureServiceConnection'
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
